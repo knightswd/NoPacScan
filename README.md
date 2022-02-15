@@ -39,5 +39,5 @@ scan with a dc-ip(with this dc ip ,it will find more DC with dns search and auto
 
 通过dc-ip传入域控地址后，将默认通过DC的dns服务器来进行dns查询，并自动扫描所有查询到的DC。
 
-![image-20220215180717215](/Users/windows7/Documents/README/image-20220215180717215.png)
+![image-20220215180717215](./example.png)
 
