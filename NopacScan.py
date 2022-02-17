@@ -48,6 +48,7 @@ from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PA
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.winregistry import hexdump
 from dnsresolve import DNSResolve
+from concurrent.futures import ThreadPoolExecutor
 
 
 class ListUsersException(Exception):
@@ -298,11 +299,39 @@ class S4U2SELF:
 
 
 def getDC(dnsIp, domainName, dnsPort):
-    dnsServer = DNSResolve(dnsIp, int(dnsPort))
-    result = dnsServer.getDCIp(domainName)
+    try:
+        dnsServer = DNSResolve(dnsIp, int(dnsPort))
+        result = dnsServer.getDCIp(domainName)
+    except Exception as e:
+        print("dns have something error")
+        sys.exit()
     return result
 
     # Process command-line arguments.
+
+
+def checkIpLive(ip):
+    import socket
+    try:
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5)
+        s.connect((ip, 445))
+        return True
+    except Exception as e:
+        print("%s have something sockets error: %s" % (ip, e))
+        return False
+
+
+def scan(ip):
+    if checkIpLive(ip):
+        try:
+            dumper = S4U2SELF(username, username, password, domain, options.hashes, ip)
+            dumper.dump()
+        except Exception as e:
+            print("%s have something error" % ip)
+            pass
+
 
 def banner():
     return """
@@ -316,6 +345,7 @@ def banner():
     
     
     """
+
 
 if __name__ == '__main__':
     logger.init()
@@ -334,6 +364,7 @@ if __name__ == '__main__':
     group.add_argument('-dns-ip', action="store", metavar="dns ip address", help='Dns search Ip(default is DC-IP)')
     group.add_argument('-dns-port', action="store", default='53', metavar="dns port",
                        help='Dns search port (default is 53)')
+    group.add_argument('-thread', action="store", default= '5', metavar="Scan thread", help='Thread you want to scan')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -360,13 +391,16 @@ if __name__ == '__main__':
         options.dns_ip = options.dc_ip
     try:
         dcIp = getDC(options.dns_ip, domain, options.dns_port)
+        dcIp.append(options.dc_ip)
+        dcIp = list(set(dcIp))
         if logging.getLogger().level == logging.DEBUG:
             print("all dc_ip is :")
             print(dcIp)
             print("#" * 80)
+        threadPool = ThreadPoolExecutor(max_workers=int(options.thread))
         for ip in dcIp:
-            dumper = S4U2SELF(username, username, password, domain, options.hashes, ip)
-            dumper.dump()
+            threadPool.submit(scan, ip)
+        threadPool.shutdown(wait=True)
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
