@@ -38,6 +38,9 @@ class DNSResolve:
         domain = '_msdcs.' + domain
         # Convert data to bit string.
         dnsAnswer = self.DNSResolve(domain, type)
+        if not dnsAnswer:
+            print("dns search _msdcs error")
+            sys.exit()
         items = []
         for data in dnsAnswer:
             if isinstance(data, pycares.ares_query_ns_result):
